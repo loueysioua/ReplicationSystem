@@ -1,101 +1,74 @@
-# Distributed Replica System with JavaFX UI
+# Setting up JavaFX in IntelliJ for the Replica System UI
 
-This project is a distributed replica system with a modern JavaFX user interface that allows you to manage multiple replicas dynamically, simulate breakdowns by stopping replicas, and interact with the system.
+This guide will help you set up JavaFX in your IntelliJ project to run the Replica System UI.
 
-## Features
+## Step 1: Download JavaFX SDK
 
-- **Dynamic Replica Management**: Add as many replicas as needed and start/stop them at will
-- **Failure Simulation**: Stop replicas to simulate breakdowns
-- **Modern UI/UX**: Clean and intuitive JavaFX interface
-- **Real-time Logging**: View system activity in real-time
-- **Distributed Communication**: Uses RabbitMQ for communication between components
-- **Persistent Storage**: Each replica stores data in its own SQLite database
+1. Download the JavaFX SDK from [JavaFX Downloads](https://gluonhq.com/products/javafx/)
+   - Choose the appropriate version for your OS (Windows, macOS, Linux)
+   - Select the JDK version that matches your project (e.g., JavaFX 17.0.2)
 
-## Requirements
+2. Extract the downloaded ZIP file to a location on your computer
+   - Remember this location, as you'll need it for the setup
 
-- Java 11 or higher
-- Maven
-- RabbitMQ server running locally (default configuration)
+## Step 2: Add JavaFX Library to IntelliJ Project
 
-## Project Structure
+1. Open your project in IntelliJ IDEA
+2. Go to **File > Project Structure** (or press Ctrl+Alt+Shift+S)
+3. Select **Libraries** in the left pane
+4. Click the **+** button and select **Java**
+5. Navigate to the location where you extracted the JavaFX SDK
+6. Select the **lib** folder within the JavaFX SDK directory
+7. Click **OK** to add the library
+8. Name the library "JavaFX" and click **OK**
+9. Make sure the library is checked for your module and click **Apply** then **OK**
 
-- **ui/**: Contains JavaFX UI components
-  - `ReplicaSystemUI.java`: Main UI application
-  - `ReplicaSystemLauncher.java`: Entry point
-- **Main/**: Core system components
-  - `Replica.java`: Individual replica instances
-  - `ClientReader.java`: Client to read last line from replicas
-  - `ClientReaderV2.java`: Client to read all lines from replicas
-  - `ClientWriter.java`: Client to write data to replicas
-- **messaging/**: Communication components
-  - `RabbitMQManager.java`: Handles RabbitMQ connections and messaging
-- **database/**: Database components
-  - `JPAUtil.java`: JPA utility for entity management
-  - `TextEntity.java`: JPA entity for stored text
-  - `TextRepository.java`: Data access object for text operations
-- **config/**: Configuration settings
-  - `AppConfig.java`: System configuration constants
-- **utils/**: Utility classes
-  - `LoggerUtil.java`: Logging utilities
+## Step 3: Add VM Options for JavaFX
 
-## Setup and Running
-
-1. **Install and start RabbitMQ**:
-   Make sure RabbitMQ is installed and running on localhost with default settings.
-
-2. **Build the project**:
+1. Select **Run > Edit Configurations** from the menu
+2. Click the **+** button to add a new configuration and select **Application**
+3. Name it "ReplicaSystemUI"
+4. Set the **Main class** to: `ui.ReplicaSystemLauncher`
+5. In the **VM options** field, add the following, replacing the path with your actual JavaFX SDK lib location:
    ```
-   mvn clean package
+   --module-path "C:\path\to\javafx-sdk\lib" --add-modules javafx.controls,javafx.fxml
    ```
+6. Click **Apply** and **OK**
 
-3. **Run the application**:
-   ```
-   mvn javafx:run
-   ```
-   
-   or
-   
-   ```
-   java -jar target/replica-system-1.0-SNAPSHOT.jar
-   ```
+## Step 4: Add Required Dependencies
 
-## Using the UI
+You'll need to add these additional dependencies to your project:
 
-### Main Controls
+1. RabbitMQ Client: [amqp-client-5.16.0.jar](https://repo1.maven.org/maven2/com/rabbitmq/amqp-client/5.16.0/amqp-client-5.16.0.jar)
+2. SLF4J API: [slf4j-api-1.7.36.jar](https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar)
+3. SLF4J Simple: [slf4j-simple-1.7.36.jar](https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36.jar)
 
-- **Add New Replica**: Creates a new replica with the next available ID
-- **Stop All Replicas**: Stops all currently running replicas
-- **Read Last**: Sends command to read the last line from all replicas
-- **Read All**: Sends command to read all lines from all replicas
-- **Write**: Allows writing new content to a specific line number
+To add these:
+1. Download each JAR file
+2. Go to **File > Project Structure > Libraries**
+3. Click the **+** button and select **Java**
+4. Navigate to each downloaded JAR file and add it
+5. Click **Apply** and **OK**
 
-### Replica Management
+## Step 5: Run the Application
 
-Each replica in the table has individual controls:
-- **Status**: Shows whether the replica is running or stopped
-- **Stop/Start**: Allows stopping or starting each replica individually
+1. Select the "ReplicaSystemUI" configuration from the dropdown in the toolbar
+2. Click the Run button (or press Shift+F10)
 
-### Log Area
+## Troubleshooting
 
-The log area at the bottom shows real-time output from all replicas and system operations, making it easy to track what's happening in the system.
+If you encounter any errors:
 
-## Architecture
+1. **Error: JavaFX runtime components are missing**
+   - Double-check the VM options path to your JavaFX SDK
 
-The system uses a publish-subscribe pattern with RabbitMQ:
-- All commands are published to a fanout exchange
-- Each replica listens to its own queue bound to the exchange
-- Replicas process commands and store/retrieve data from their individual SQLite databases
+2. **NoClassDefFoundError for JavaFX classes**
+   - Ensure the JavaFX library is properly added to your project
+   - Check that the module path in VM options is correct
 
-### Command Protocol
+3. **Cannot find RabbitMQ classes**
+   - Verify that the RabbitMQ client JAR is added to your project libraries
 
-- `READ LAST`: Retrieves the last line from the replicas
-- `READ ALL`: Retrieves all lines from the replicas
-- `WRITE <lineNumber> <content>`: Writes content to the specified line number
-
-## Extending the System
-
-You can extend this system by:
-- Adding more command types
-- Implementing data replication between replicas
-- Adding fault tolerance mechanisms
-- Adding authentication and security features
+4. **Process keeps running after application close**
+   - This is expected behavior - the application starts replica processes that need to be manually stopped
+   - Use the "Stop All Replicas" button before closing the application
