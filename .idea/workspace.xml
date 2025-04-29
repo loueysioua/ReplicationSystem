@@ -5,9 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f60d032c-05ca-4bbc-a8d9-1f2bfd251d3e" name="Changes" comment="modified git ignore">
-      <change beforePath="$PROJECT_DIR$/src/ui/ClientReaderFX.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ui/ClientReaderFX.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ui/ClientWriterFX.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ui/ClientWriterFX.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/ui/ReplicaManagerFX.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ui/ReplicaManagerFX.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ui/ReplicaController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ui/ReplicaController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/ui/SplashScreen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/ui/SplashScreen.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/utils/LoggerUtil.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/utils/LoggerUtil.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -96,7 +97,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected="Application.SplashScreen">
+  <component name="RunManager" selected="Application.ClientWriterFX">
     <configuration name="ClientReaderFX" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="ui.ClientReaderFX" />
       <module name="ReplicationSystem" />
@@ -169,9 +170,9 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Application.SplashScreen" />
-        <item itemvalue="Application.ClientReaderFX" />
         <item itemvalue="Application.ClientWriterFX" />
+        <item itemvalue="Application.ClientReaderFX" />
+        <item itemvalue="Application.SplashScreen" />
         <item itemvalue="Application.ReplicaManagerFX" />
         <item itemvalue="Application.ReplicaController" />
       </list>
