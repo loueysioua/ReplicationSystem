@@ -1,5 +1,6 @@
 package main;
 
+import config.AppConfig;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
 
@@ -10,7 +11,7 @@ public class ClientReaderV2 {
     public static void main(String[] args) {
         try {
             RabbitMQManager manager = new RabbitMQManager();
-            manager.publish("READ ALL");
+            manager.publish(AppConfig.MSG_READ_ALL);
             manager.close();
         } catch (IOException | TimeoutException e) {
             LoggerUtil.error("ClientReaderV2 failed", e);

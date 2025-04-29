@@ -1,6 +1,8 @@
 package ui;
 
 import main.ClientReaderV2;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -9,6 +11,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import utils.LoggerUtil;
 
 import java.util.ArrayList;
@@ -184,57 +187,65 @@ public class ReplicaManagerFX extends Application {
         launchButton.setDisable(true);
         launchButton.setText("Launching...");
 
-        // Start each replica in a separate thread to avoid blocking the UI
-        new Thread(() -> {
-            try {
-                for (int i = 1; i <= count; i++) {
-                    final int replicaId = i;
-                    LoggerUtil.log("Starting Replica " + replicaId);
+        final int[] currentReplica = {1};
 
-                    // Launch replica as a separate process
-                    ProcessBuilder builder = new ProcessBuilder(
-                            System.getProperty("java.home") + System.getProperty("file.separator") + "bin" +
-                                    System.getProperty("file.separator") + "java",
-                            "-cp", System.getProperty("java.class.path"),
-                            "Main.Replica",
-                            String.valueOf(replicaId));
+        Timeline launchTimeline = new Timeline();
+        for (int i = 0; i < count; i++) {
+            launchTimeline.getKeyFrames().add(
+                new KeyFrame(Duration.seconds(i * 0.8), e -> {
+                    try {
+                        LoggerUtil.log("Starting Replica " + currentReplica[0]);
 
-                    Process process = builder.start();
-                    replicaProcesses.add(process);
+                        ProcessBuilder builder = new ProcessBuilder(
+                                System.getProperty("java.home") + System.getProperty("file.separator") + "bin" +
+                                        System.getProperty("file.separator") + "java",
+                                "-cp", System.getProperty("java.class.path"),
+                                "--module-path", "C:\\Users\\ASUS\\Downloads\\javafx-sdk-21.0.7\\lib",
+                                "--add-modules", "javafx.controls,javafx.fxml",
+                                launcher.ReplicaLauncher.class.getName(),
+                                String.valueOf(currentReplica[0]));
 
-                    // Add a small delay between launching replicas to prevent resource contention
-                    Thread.sleep(800);
-                }
+                        Process process = builder.start();
+                        replicaProcesses.add(process);
+                        currentReplica[0]++;
+                    } catch (Exception ex) {
+                        LoggerUtil.error("Error launching replica " + currentReplica[0], ex);
+                    }
+                })
+            );
+        }
 
-                Platform.runLater(() -> {
-                    launchButton.setDisable(false);
-                    launchButton.setText("Launch Replicas");
-                    updateStatus("All replicas launched successfully");
-                });
-            } catch (Exception ex) {
-                LoggerUtil.error("Error launching replicas", ex);
-                Platform.runLater(() -> {
-                    launchButton.setDisable(false);
-                    launchButton.setText("Launch Replicas");
-                    updateStatus("Error launching replicas");
-                });
+        launchTimeline.getKeyFrames().add(
+            new KeyFrame(Duration.seconds(count * 0.8), e -> {
+                launchButton.setDisable(false);
+                launchButton.setText("Launch Replicas");
+                updateStatus("All replicas launched successfully");
+            })
+        );
+
+        launchTimeline.setOnFinished(e -> {
+            if (currentReplica[0] < count + 1) {
+                LoggerUtil.error("Some replicas failed to launch", new Exception("Not all replicas were started"));
+                launchButton.setDisable(false);
+                launchButton.setText("Launch Replicas");
+                updateStatus("Error launching replicas");
             }
-        }).start();
+        });
+
+        launchTimeline.play();
     }
 
     private void stopAllReplicas() {
         updateStatus("Stopping all replicas...");
-
-        new Thread(() -> {
-            for (Process process : replicaProcesses) {
-                if (process.isAlive()) {
-                    process.destroy();
-                }
+        
+        for (Process process : replicaProcesses) {
+            if (process.isAlive()) {
+                process.destroy();
             }
+        }
 
-            replicaProcesses.clear();
-            Platform.runLater(() -> updateStatus("All replicas stopped"));
-        }).start();
+        replicaProcesses.clear();
+        updateStatus("All replicas stopped");
     }
 
     private void launchClientWriter() {
@@ -243,6 +254,8 @@ public class ReplicaManagerFX extends Application {
                     System.getProperty("java.home") + System.getProperty("file.separator") + "bin" +
                             System.getProperty("file.separator") + "java",
                     "-cp", System.getProperty("java.class.path"),
+                    "--module-path", "C:\\Users\\ASUS\\Downloads\\javafx-sdk-21.0.7\\lib",
+                    "--add-modules", "javafx.controls,javafx.fxml",
                     ClientWriterFX.class.getName());
 
             builder.start();
@@ -260,6 +273,8 @@ public class ReplicaManagerFX extends Application {
                     System.getProperty("java.home") + System.getProperty("file.separator") + "bin" +
                             System.getProperty("file.separator") + "java",
                     "-cp", System.getProperty("java.class.path"),
+                    "--module-path", "C:\\Users\\ASUS\\Downloads\\javafx-sdk-21.0.7\\lib",
+                    "--add-modules", "javafx.controls,javafx.fxml",
                     advanced ? ClientReaderV2.class.getName() : ClientReaderFX.class.getName());
 
             builder.start();
@@ -270,6 +285,8 @@ public class ReplicaManagerFX extends Application {
             updateStatus("Error launching Client Reader");
         }
     }
+
+
 
     private void updateStatus(String status) {
         statusLabel.setText("System Status: " + status);

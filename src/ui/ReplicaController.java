@@ -1,5 +1,6 @@
 package ui;
 
+import com.rabbitmq.client.AMQP;
 import config.AppConfig;
 import database.TextEntity;
 import database.TextRepository;
@@ -132,74 +133,94 @@ public class ReplicaController {
         return box;
     }
 
-    private void startListeningToQueue() {
-        new Thread(() -> {
-            try {
-                rmq = new RabbitMQManager();
-                String queueName = AppConfig.QUEUE_PREFIX + replicaId;
-                rmq.declareQueue(queueName);
-                rmq.consume(queueName, (consumerTag, delivery) -> {
-                    if (!isRunning.get()) return;
-                    if (isFaulty.get()) return;
-
-                    String message = new String(delivery.getBody(), "UTF-8");
-                    receivedMessages.incrementAndGet();
-                    log("📥 Received: " + message);
-
-                    try {
-                        // Small delay to simulate processing time
-                        Thread.sleep(100);
-
-                        if (message.startsWith("WRITE ")) {
-                            String[] parts = message.substring(6).split(" ", 2);
-                            int lineNumber = Integer.parseInt(parts[0]);
-                            String content = parts[1];
-                            repository.insertLine(lineNumber, content);
-                            log("✅ Processed write: Line " + lineNumber);
-                        } else if (message.equals("READ LAST")) {
-                            TextEntity lastLine = repository.getLastLine();
-                            if (lastLine != null) {
-                                log("📖 Read last line: " + lastLine);
-                            } else {
-                                log("📖 Database is empty");
-                            }
-                        } else if (message.equals("READ ALL")) {
-                            log("📖 Reading all lines...");
-                            repository.getAllLines().forEach(text -> {
-                                log("  → Line " + text.getLineNumber() + ": " + text.getContent());
-                            });
-                        } else {
-                            try {
-                                JSONObject json = new JSONObject(message);
-                                if (json.has("line_number") && json.has("content")) {
-                                    int lineNumber = json.getInt("line_number");
-                                    String content = json.getString("content");
-                                    repository.insertLine(lineNumber, content);
-                                    log("✅ Processed JSON write: Line " + lineNumber);
-                                    refreshDbContents();
-                                }
-                            } catch (Exception ex) {
-                                log("❌ Invalid message format: " + message);
-                            }
-                        }
-
-                        processedMessages.incrementAndGet();
-                        refreshDbContents();
-                    } catch (Exception ex) {
-                        log("❌ Error processing message: " + ex.getMessage());
-                        LoggerUtil.error("Failed to process message in replica " + replicaId, ex);
-                    }
-                });
-
-                updateStatus("Online", Color.GREEN);
-                log("🚀 Replica " + replicaId + " is listening for messages...");
-
-            } catch (Exception e) {
-                updateStatus("Connection Error", Color.RED);
-                log("❌ Failed to connect to RabbitMQ: " + e.getMessage());
-                LoggerUtil.error("Failed to connect RabbitMQ for replica " + replicaId, e);
+    private void processMessage(String message, AMQP.BasicProperties properties) throws Exception {
+        String replyTo = properties != null ? properties.getReplyTo() : null;
+        String correlationId = properties != null ? properties.getCorrelationId() : null;
+        
+        if (message.startsWith("WRITE ")) {
+            String[] parts = message.substring(6).split(" ", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException("Invalid WRITE message format. Expected: WRITE <lineNumber> <content>");
             }
-        }).start();
+            int lineNumber = Integer.parseInt(parts[0]);
+            String content = parts[1];
+            repository.insertLine(lineNumber, content);
+            Platform.runLater(() -> log("✅ Processed write: Line " + lineNumber));
+        } else if (message.equals("READ LAST")) {
+            TextEntity lastLine = repository.getLastLine();
+            if (lastLine != null && replyTo != null) {
+                JSONObject response = new JSONObject();
+                response.put("replicaId", replicaId);
+                response.put("lineNumber", lastLine.getLineNumber());
+                response.put("content", lastLine.getContent());
+                response.put("timestamp", lastLine.getTimestamp());
+                
+                rmq.publishResponse(response.toString(), replyTo, correlationId);
+                Platform.runLater(() -> log("📖 Sent last line response: " + lastLine));
+            } else if (replyTo != null) {
+                JSONObject response = new JSONObject();
+                response.put("replicaId", replicaId);
+                response.put("empty", true);
+                rmq.publishResponse(response.toString(), replyTo, correlationId);
+                Platform.runLater(() -> log("📖 Sent empty response - no data"));
+            } else {
+                Platform.runLater(() -> log("📖 Read last line request without reply queue"));
+            }
+        } else if (message.equals("READ ALL")) {
+            Platform.runLater(() -> log("📖 Reading all lines..."));
+            repository.getAllLines().forEach(text -> {
+                Platform.runLater(() -> log("  → Line " + text.getLineNumber() + ": " + text.getContent()));
+            });
+        } else {
+            try {
+                JSONObject json = new JSONObject(message);
+                if (json.has("line_number") && json.has("content")) {
+                    int lineNumber = json.getInt("line_number");
+                    String content = json.getString("content");
+                    repository.insertLine(lineNumber, content);
+                    Platform.runLater(() -> log("✅ Processed JSON write: Line " + lineNumber));
+                }
+            } catch (Exception ex) {
+                Platform.runLater(() -> log("❌ Invalid message format: " + message));
+                throw ex;
+            }
+        }
+    }
+
+    private void startListeningToQueue() {
+        try {
+            rmq = new RabbitMQManager();
+            String queueName = AppConfig.QUEUE_PREFIX + replicaId;
+            
+            // Declare queue and ensure binding
+            rmq.declareQueue(queueName);
+
+            rmq.consume(queueName, (consumerTag, delivery) -> {
+                if (!isRunning.get() || isFaulty.get()) return;
+
+                String message = new String(delivery.getBody(), "UTF-8");
+                receivedMessages.incrementAndGet();
+                Platform.runLater(() -> log("📥 Received: " + message));
+
+                try {
+                    // Process the message with its properties
+                    processMessage(message, delivery.getProperties());
+                    processedMessages.incrementAndGet();
+                    Platform.runLater(this::refreshDbContents);
+                } catch (Exception ex) {
+                    Platform.runLater(() -> log("❌ Error processing message: " + ex.getMessage()));
+                    LoggerUtil.error("Failed to process message in replica " + replicaId, ex);
+                }
+            });
+
+            updateStatus("Online", Color.GREEN);
+            log("🚀 Replica " + replicaId + " is listening for messages...");
+
+        } catch (Exception e) {
+            updateStatus("Connection Error", Color.RED);
+            log("❌ Failed to connect to RabbitMQ: " + e.getMessage());
+            LoggerUtil.error("Failed to connect RabbitMQ for replica " + replicaId, e);
+        }
     }
 
     private void toggleRunning(Button button) {
@@ -225,43 +246,41 @@ public class ReplicaController {
         updateStatus("BREAKDOWN", Color.RED);
         log("🔴 Replica has experienced a simulated breakdown!");
 
-        // Simulate some glitchy behavior
-        new Thread(() -> {
-            try {
-                for (int i = 0; i < 5; i++) {
-                    Platform.runLater(() -> log("⚠️ ERROR: Connection lost to message broker"));
-                    Thread.sleep(200);
-                    Platform.runLater(() -> log("⚠️ ERROR: Database connection unstable"));
-                    Thread.sleep(200);
-                }
-                Platform.runLater(() -> log("💀 System in failure state - recovery required"));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
+        // Simulate glitchy behavior using Timeline
+        javafx.animation.Timeline glitchTimeline = new javafx.animation.Timeline();
+        for (int i = 0; i < 5; i++) {
+            glitchTimeline.getKeyFrames().addAll(
+                new javafx.animation.KeyFrame(javafx.util.Duration.seconds(i * 0.4), e -> 
+                    log("⚠️ ERROR: Connection lost to message broker")),
+                new javafx.animation.KeyFrame(javafx.util.Duration.seconds(i * 0.4 + 0.2), e -> 
+                    log("⚠️ ERROR: Database connection unstable"))
+            );
+        }
+        glitchTimeline.getKeyFrames().add(
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(2.0), e -> 
+                log("💀 System in failure state - recovery required"))
+        );
+        glitchTimeline.play();
     }
 
     private void simulateRecovery(Button button) {
         isFaulty.set(false);
         log("🔄 Starting recovery procedure...");
 
-        new Thread(() -> {
-            try {
-                Platform.runLater(() -> log("🔄 Reconnecting to message broker..."));
-                Thread.sleep(1000);
-                Platform.runLater(() -> log("🔄 Reestablishing database connection..."));
-                Thread.sleep(1000);
-                Platform.runLater(() -> log("🔄 Validating system integrity..."));
-                Thread.sleep(1000);
-                Platform.runLater(() -> {
-                    log("✅ Recovery complete! System is back online.");
-                    isRunning.set(true);
-                    updateStatus("Recovered", Color.GREEN);
-                });
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
+        javafx.animation.Timeline recoveryTimeline = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, e -> 
+                log("🔄 Reconnecting to message broker...")),
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> 
+                log("🔄 Reestablishing database connection...")),
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(2), e -> 
+                log("🔄 Validating system integrity...")),
+            new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3), e -> {
+                log("✅ Recovery complete! System is back online.");
+                isRunning.set(true);
+                updateStatus("Recovered", Color.GREEN);
+            })
+        );
+        recoveryTimeline.play();
     }
 
     private void refreshDbContents() {

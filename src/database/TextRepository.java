@@ -33,13 +33,23 @@ public class TextRepository {
             CREATE TABLE IF NOT EXISTS text_lines (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 line_number INT NOT NULL,
-                content TEXT NOT NULL
+                content TEXT NOT NULL,
+                timestamp BIGINT NOT NULL DEFAULT 0
             )
         """;
 
         try (Connection conn = DriverManager.getConnection(url, user, password);
              Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(createTableSQL);
+            
+            // Check if timestamp column exists
+            ResultSet columns = conn.getMetaData().getColumns(null, null, "text_lines", "timestamp");
+            if (!columns.next()) {
+                // Add timestamp column if it doesn't exist
+                stmt.executeUpdate("ALTER TABLE text_lines ADD COLUMN timestamp BIGINT NOT NULL DEFAULT " + System.currentTimeMillis());
+                // Update existing rows with current timestamp
+                stmt.executeUpdate("UPDATE text_lines SET timestamp = " + System.currentTimeMillis() + " WHERE timestamp = 0");
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -51,11 +61,12 @@ public class TextRepository {
     }
 
     public void insertLine(int lineNumber, String content) {
-        String sql = "INSERT INTO text_lines (line_number, content) VALUES (?, ?)";
+        String sql = "INSERT INTO text_lines (line_number, content, timestamp) VALUES (?, ?, ?)";
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, lineNumber);
             stmt.setString(2, content);
+            stmt.setLong(3, System.currentTimeMillis());
             stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -63,13 +74,18 @@ public class TextRepository {
     }
 
     public TextEntity getLastLine() {
-        String sql = "SELECT line_number, content FROM text_lines ORDER BY line_number DESC LIMIT 1";
+        // Note that we're explicitly selecting all required fields including timestamp
+        String sql = "SELECT line_number, content, timestamp FROM text_lines ORDER BY line_number DESC LIMIT 1";
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             if (rs.next()) {
-                return new TextEntity(rs.getInt("line_number"), rs.getString("content"));
+                return new TextEntity(
+                    rs.getInt("line_number"),
+                    rs.getString("content"),
+                    rs.getLong("timestamp")
+                );
             }
 
         } catch (SQLException e) {
@@ -80,14 +96,18 @@ public class TextRepository {
 
     public List<TextEntity> getAllLines() {
         List<TextEntity> list = new ArrayList<>();
-        String sql = "SELECT line_number, content FROM text_lines ORDER BY line_number";
+        String sql = "SELECT line_number, content, timestamp FROM text_lines ORDER BY line_number";
 
         try (Connection conn = connect();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                list.add(new TextEntity(rs.getInt("line_number"), rs.getString("content")));
+                list.add(new TextEntity(
+                    rs.getInt("line_number"),
+                    rs.getString("content"),
+                    rs.getLong("timestamp")
+                ));
             }
 
         } catch (SQLException e) {

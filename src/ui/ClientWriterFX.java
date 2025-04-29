@@ -15,7 +15,6 @@ import javafx.stage.Stage;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
 
-import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ClientWriterFX extends Application {
@@ -243,40 +242,26 @@ public class ClientWriterFX extends Application {
         sendingIndicator.setVisible(true);
         updateStatus("Sending message...", Color.BLUE);
 
-        // Send the message in a background thread
-        new Thread(() -> {
-            try {
-                String message = "WRITE " + lineNumber + " " + content;
-                rmq.publish(message);
+        // Use Platform.runLater for UI updates
+        try {
+            String message = "WRITE " + lineNumber + " " + content;
+            rmq.publish(message);
+            sentCounter.incrementAndGet();
 
-                // Simulate network delay
-                Thread.sleep(500);
-
-                sentCounter.incrementAndGet();
-
-                // Update UI on success
-                javafx.application.Platform.runLater(() -> {
-                    String timestamp = java.time.LocalTime.now().toString().substring(0, 8);
-                    messageHistory.add(0, "[" + timestamp + "] SUCCESS: Sent line " + lineNumber);
-                    updateStatus("Message sent successfully", Color.GREEN);
-                    lineNumberField.clear();
-                    contentArea.clear();
-                });
-
-            } catch (Exception e) {
-                LoggerUtil.error("Failed to send message", e);
-                javafx.application.Platform.runLater(() -> {
-                    String timestamp = java.time.LocalTime.now().toString().substring(0, 8);
-                    messageHistory.add(0, "[" + timestamp + "] ERROR: Failed to send - " + e.getMessage());
-                    updateStatus("Failed to send message", Color.RED);
-                });
-            } finally {
-                javafx.application.Platform.runLater(() -> {
-                    sendButton.setDisable(false);
-                    sendingIndicator.setVisible(false);
-                });
-            }
-        }).start();
+            String timestamp = java.time.LocalTime.now().toString().substring(0, 8);
+            messageHistory.add(0, "[" + timestamp + "] SUCCESS: Sent line " + lineNumber);
+            updateStatus("Message sent successfully", Color.GREEN);
+            lineNumberField.clear();
+            contentArea.clear();
+        } catch (Exception e) {
+            LoggerUtil.error("Failed to send message", e);
+            String timestamp = java.time.LocalTime.now().toString().substring(0, 8);
+            messageHistory.add(0, "[" + timestamp + "] ERROR: Failed to send - " + e.getMessage());
+            updateStatus("Failed to send message", Color.RED);
+        } finally {
+            sendButton.setDisable(false);
+            sendingIndicator.setVisible(false);
+        }
     }
 
     private void updateStatus(String message, Color color) {
