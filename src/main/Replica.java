@@ -1,13 +1,13 @@
 package main;
 
 import config.AppConfig;
-import utils.JPAUtil;
+import database.TextEntity;
+
 import database.TextRepository;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
 import com.rabbitmq.client.DeliverCallback;
 
-import javax.persistence.EntityManager;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
@@ -20,8 +20,7 @@ public class Replica {
         int replicaId = Integer.parseInt(args[0]);
 
         try {
-            EntityManager em = JPAUtil.getEntityManager(replicaId);
-            TextRepository repo = new TextRepository(em);
+            TextRepository repo = new TextRepository(replicaId);
             RabbitMQManager rabbitMQManager = new RabbitMQManager();
 
             String queueName = AppConfig.QUEUE_PREFIX + replicaId;
@@ -35,9 +34,9 @@ public class Replica {
                     String[] parts = message.substring(6).split(" ", 2);
                     int lineNumber = Integer.parseInt(parts[0]);
                     String content = parts[1];
-                    repo.saveLine(lineNumber, content);
+                    repo.insertLine(lineNumber, content);
                 } else if (message.equals("READ LAST")) {
-                    String lastLine = repo.getLastLine();
+                    TextEntity lastLine = repo.getLastLine();
                     if (lastLine != null) {
                         LoggerUtil.log("Replica " + replicaId + " last line: " + lastLine);
                     }
@@ -49,8 +48,7 @@ public class Replica {
             };
 
             rabbitMQManager.consume(queueName, deliverCallback);
-            em.close();
-            JPAUtil.closeEntityManagerFactory(replicaId);
+LoggerUtil.log("Replica " + replicaId + " is waiting for messages...");
         } catch (IOException | TimeoutException e) {
             LoggerUtil.error("Replica failed", e);
         }

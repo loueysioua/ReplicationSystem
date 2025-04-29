@@ -1,6 +1,7 @@
 package ui;
 
 import config.AppConfig;
+import database.TextEntity;
 import database.TextRepository;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
@@ -11,67 +12,74 @@ import javafx.scene.layout.VBox;
 import org.json.JSONObject;
 
 public class ReplicaController {
+
     private final int replicaId;
     private final VBox view;
-    private final TextArea logArea;
-    private final TextRepository repo;
+    private final TextArea logArea= new TextArea();;
+    private final TextRepository repository;
     private volatile boolean running = true;
 
     public ReplicaController(int replicaId) {
         this.replicaId = replicaId;
-        this.repo = new TextRepository(replicaId);
+        this.repository = new TextRepository(replicaId);
         this.view = buildUI();
-        initRabbitMQ();
+        startListeningToQueue();
     }
 
     private VBox buildUI() {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(10));
-        box.setStyle("-fx-border-color: gray; -fx-background-color: white;");
-
         Label title = new Label("Replica #" + replicaId);
-        title.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
-        logArea = new TextArea();
         logArea.setEditable(false);
-        logArea.setPrefHeight(200);
+        logArea.setPrefHeight(250);
 
         Button stopBtn = new Button("Stop");
         stopBtn.setOnAction(e -> {
             running = false;
-            log("Replica stopped.");
+            log("🔴 Replica stopped");
         });
 
-        Button viewDbBtn = new Button("View DB");
-        viewDbBtn.setOnAction(e -> {
-            for (JSONObject obj : repo.getAllLinesAsJson()) {
-                log("📄 " + obj.toString());
+        Button showDbBtn = new Button("View DB");
+        showDbBtn.setOnAction(e -> {
+            for (TextEntity entity : repository.getAllLines()) {
+                log("📄 " + entity.toString());
             }
         });
 
-        box.getChildren().addAll(title, logArea, stopBtn, viewDbBtn);
+        VBox box = new VBox(10, title, logArea, stopBtn, showDbBtn);
+        box.setPadding(new Insets(10));
+        box.setStyle("-fx-border-color: #cccccc; -fx-border-radius: 8; -fx-background-radius: 8; -fx-background-color: white;");
         return box;
     }
 
-    private void initRabbitMQ() {
+    private void startListeningToQueue() {
         new Thread(() -> {
             try {
                 RabbitMQManager rmq = new RabbitMQManager();
                 String queueName = AppConfig.QUEUE_PREFIX + replicaId;
                 rmq.declareQueue(queueName);
-                rmq.consume(queueName, (tag, delivery) -> {
+                rmq.consume(queueName, (consumerTag, delivery) -> {
                     if (!running) return;
-                    String msg = new String(delivery.getBody(), "UTF-8");
-                    log("📥 Received: " + msg);
-                    JSONObject json = new JSONObject(msg);
-                    if (json.has("line_number") && json.has("content")) {
-                        int line = json.getInt("line_number");
-                        String text = json.getString("content");
-                        repo.insertLine(line, text);
+
+                    String message = new String(delivery.getBody(), "UTF-8");
+                    log("📥 Received: " + message);
+
+                    try {
+                        JSONObject json = new JSONObject(message);
+                        if (json.has("line_number") && json.has("content")) {
+                            TextEntity entity = new TextEntity(
+                                    json.getInt("line_number"),
+                                    json.getString("content")
+                            );
+                            repository.insertLine(entity.getLineNumber(), entity.getContent());
+                        }
+                    } catch (Exception ex) {
+                        LoggerUtil.error("❌ Invalid message format", ex);
                     }
                 });
+
             } catch (Exception e) {
-                LoggerUtil.error("RabbitMQ error", e);
+                LoggerUtil.error("❌ Failed to connect RabbitMQ for replica " + replicaId, e);
             }
         }).start();
     }

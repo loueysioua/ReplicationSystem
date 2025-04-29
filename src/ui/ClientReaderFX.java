@@ -1,12 +1,12 @@
 package ui;
 
 import database.TextRepository;
+import database.TextEntity;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import org.json.JSONObject;
 
 public class ClientReaderFX extends Application {
 
@@ -19,8 +19,8 @@ public class ClientReaderFX extends Application {
 
         readBtn.setOnAction(e -> {
             TextRepository repo = new TextRepository(replicaSpinner.getValue());
-            JSONObject last = repo.getLastLineAsJson();
-            output.setText(last != null ? last.toString(2) : "(vide)");
+            TextEntity last = repo.getLastLine();
+            output.setText(last != null ? last.toString() : "(vide)");
         });
 
         VBox root = new VBox(10, replicaSpinner, readBtn, output);
