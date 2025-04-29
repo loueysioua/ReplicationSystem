@@ -7,7 +7,7 @@ import javax.persistence.*;
 public class TextEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
     private int lineNumber;
     private String content;
@@ -19,11 +19,27 @@ public class TextEntity {
         this.content = content;
     }
 
+    public Long getId() {
+        return id;
+    }
+
     public int getLineNumber() {
         return lineNumber;
     }
 
     public String getContent() {
         return content;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setLineNumber(int lineNumber) {
+        this.lineNumber = lineNumber;
+    }
+
+    public void setContent(String content) {
+        this.content = content;
     }
 }

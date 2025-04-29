@@ -1,7 +1,7 @@
 package Main;
 
 import config.AppConfig;
-import database.JPAUtil;
+import utils.JPAUtil;
 import database.TextRepository;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
