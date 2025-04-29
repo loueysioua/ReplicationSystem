@@ -1,6 +1,6 @@
 package ui;
 
-import Main.ClientReaderV2;
+import main.ClientReaderV2;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;

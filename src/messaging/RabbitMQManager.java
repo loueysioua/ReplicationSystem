@@ -1,8 +1,9 @@
 package messaging;
 
+import com.rabbitmq.client.*;
 import config.AppConfig;
 import utils.LoggerUtil;
-import com.rabbitmq.client.*;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
@@ -29,7 +30,7 @@ public class RabbitMQManager {
 
     public void publish(String message) throws IOException {
         channel.basicPublish(AppConfig.EXCHANGE_NAME, "", null, message.getBytes(StandardCharsets.UTF_8));
-        LoggerUtil.log("Message published: " + message);
+        LoggerUtil.log("Published: " + message);
     }
 
     public void declareQueue(String queueName) throws IOException {
@@ -46,7 +47,7 @@ public class RabbitMQManager {
             if (channel != null) channel.close();
             if (connection != null) connection.close();
         } catch (Exception e) {
-            LoggerUtil.error("Error closing RabbitMQ connection", e);
+            LoggerUtil.error("RabbitMQ closing failed", e);
         }
     }
 }

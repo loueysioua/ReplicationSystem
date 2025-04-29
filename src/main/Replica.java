@@ -1,4 +1,4 @@
-package Main;
+package main;
 
 import config.AppConfig;
 import utils.JPAUtil;
@@ -49,6 +49,8 @@ public class Replica {
             };
 
             rabbitMQManager.consume(queueName, deliverCallback);
+            em.close();
+            JPAUtil.closeEntityManagerFactory(replicaId);
         } catch (IOException | TimeoutException e) {
             LoggerUtil.error("Replica failed", e);
         }
