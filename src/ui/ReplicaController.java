@@ -5,6 +5,7 @@ import config.AppConfig;
 import database.TextEntity;
 import database.TextRepository;
 import messaging.RabbitMQManager;
+import org.json.JSONArray;
 import utils.LoggerUtil;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -19,6 +20,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import org.json.JSONObject;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ReplicaController {
@@ -171,6 +173,29 @@ public class ReplicaController {
             repository.getAllLines().forEach(text -> {
                 Platform.runLater(() -> log("  → Line " + text.getLineNumber() + ": " + text.getContent()));
             });
+        } else if (message.equals("READ ALL_JSON")) {
+            // Handle the READ ALL_JSON command
+            Platform.runLater(() -> log("📖 Reading all lines for JSON response..."));
+            if (replyTo != null) {
+                List<TextEntity> allLines = repository.getAllLines();
+                JSONObject response = new JSONObject();
+                response.put("replicaId", replicaId);
+
+                JSONArray linesArray = new JSONArray();
+                allLines.forEach(line -> {
+                    JSONObject lineObj = new JSONObject();
+                    lineObj.put("lineNumber", line.getLineNumber());
+                    lineObj.put("content", line.getContent());
+                    lineObj.put("timestamp", line.getTimestamp());
+                    linesArray.put(lineObj);
+                });
+
+                response.put("lines", linesArray);
+                rmq.publishResponse(response.toString(), replyTo, correlationId);
+                Platform.runLater(() -> log("📖 Sent JSON response with " + allLines.size() + " lines"));
+            } else {
+                Platform.runLater(() -> log("📖 READ ALL_JSON request received without reply queue"));
+            }
         } else {
             try {
                 JSONObject json = new JSONObject(message);
