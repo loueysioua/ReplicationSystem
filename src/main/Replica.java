@@ -7,9 +7,11 @@ import database.TextEntity;
 import database.TextRepository;
 import messaging.RabbitMQManager;
 import utils.LoggerUtil;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 
@@ -54,8 +56,8 @@ public class Replica {
         }
     }
 
-    private static void processMessage(TextRepository repo, int replicaId, String message, 
-                                    RabbitMQManager rabbitMQManager, com.rabbitmq.client.Delivery delivery) throws Exception {
+    private static void processMessage(TextRepository repo, int replicaId, String message,
+                                       RabbitMQManager rabbitMQManager, com.rabbitmq.client.Delivery delivery) throws Exception {
         AMQP.BasicProperties properties = delivery.getProperties();
         String replyTo = properties.getReplyTo();
         String correlationId = properties.getCorrelationId();
@@ -75,7 +77,7 @@ public class Replica {
                     response.put("lineNumber", lastLine.getLineNumber());
                     response.put("content", lastLine.getContent());
                     response.put("timestamp", lastLine.getTimestamp());
-                    
+
                     LoggerUtil.log("Replica " + replicaId + " sending response: " + response.toString());
                     rabbitMQManager.publishResponse(response.toString(), replyTo, correlationId);
                 } else {
@@ -91,6 +93,26 @@ public class Replica {
                 repo.getAllLines().forEach(text -> {
                     LoggerUtil.log("Replica " + replicaId + " Line: " + text.getLineNumber() + " => " + text.getContent());
                 });
+            } else if (message.equals(AppConfig.MSG_READ_ALL + "_JSON")) {
+                // New command for getting all lines as JSON
+                if (replyTo != null) {
+                    List<TextEntity> allLines = repo.getAllLines();
+                    JSONObject response = new JSONObject();
+                    response.put("replicaId", replicaId);
+
+                    JSONArray linesArray = new JSONArray();
+                    allLines.forEach(line -> {
+                        JSONObject lineObj = new JSONObject();
+                        lineObj.put("lineNumber", line.getLineNumber());
+                        lineObj.put("content", line.getContent());
+                        lineObj.put("timestamp", line.getTimestamp());
+                        linesArray.put(lineObj);
+                    });
+
+                    response.put("lines", linesArray);
+                    LoggerUtil.log("Replica " + replicaId + " sending JSON response with " + allLines.size() + " lines");
+                    rabbitMQManager.publishResponse(response.toString(), replyTo, correlationId);
+                }
             } else {
                 try {
                     JSONObject json = new JSONObject(message);

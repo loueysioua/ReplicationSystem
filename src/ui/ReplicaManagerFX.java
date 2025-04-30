@@ -275,7 +275,7 @@ public class ReplicaManagerFX extends Application {
                     "-cp", System.getProperty("java.class.path"),
                     "--module-path", "C:\\Users\\ASUS\\Downloads\\javafx-sdk-21.0.7\\lib",
                     "--add-modules", "javafx.controls,javafx.fxml",
-                    advanced ? ClientReaderV2.class.getName() : ClientReaderFX.class.getName());
+                    advanced ? ClientReaderV2FX.class.getName() : ClientReaderFX.class.getName());
 
             builder.start();
             LoggerUtil.log("Started " + (advanced ? "Advanced" : "Simple") + " Client Reader in a new process");
