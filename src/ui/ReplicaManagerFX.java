@@ -118,23 +118,23 @@ public class ReplicaManagerFX extends Application {
 
         // Reader client section
         Label readerLabel = new Label("Text Reader Client:");
-        Button launchSimpleReaderButton = new Button("Launch Simple Reader");
-        launchSimpleReaderButton.getStyleClass().add("info-button");
-        launchSimpleReaderButton.setMaxWidth(Double.MAX_VALUE);
+        Button launchReaderV1Button = new Button("Launch Reader V1");
+        launchReaderV1Button.getStyleClass().add("info-button");
+        launchReaderV1Button.setMaxWidth(Double.MAX_VALUE);
 
-        Button launchAdvancedReaderButton = new Button("Launch Advanced Reader");
-        launchAdvancedReaderButton.getStyleClass().add("info-button");
-        launchAdvancedReaderButton.setMaxWidth(Double.MAX_VALUE);
+        Button launchReaderV2Button = new Button("Launch Reader V2");
+        launchReaderV2Button.getStyleClass().add("info-button");
+        launchReaderV2Button.setMaxWidth(Double.MAX_VALUE);
 
-        launchSimpleReaderButton.setOnAction(e -> launchClientReader(false));
-        launchAdvancedReaderButton.setOnAction(e -> launchClientReader(true));
+        launchReaderV1Button.setOnAction(e -> launchClientReader(false));
+        launchReaderV2Button.setOnAction(e -> launchClientReader(true));
 
         // Add components to grid
         clientGrid.add(writerLabel, 0, 0);
         clientGrid.add(launchWriterButton, 1, 0);
         clientGrid.add(readerLabel, 0, 1);
-        clientGrid.add(launchSimpleReaderButton, 1, 1);
-        clientGrid.add(launchAdvancedReaderButton, 1, 2);
+        clientGrid.add(launchReaderV1Button, 1, 1);
+        clientGrid.add(launchReaderV2Button, 1, 2);
 
         // Set column constraints
         ColumnConstraints col1 = new ColumnConstraints();
